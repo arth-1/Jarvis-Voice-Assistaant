@@ -1,3 +1,4 @@
+# Importing necessary libraries
 import speech_recognition as sr
 import webbrowser
 import pyttsx3
@@ -32,23 +33,18 @@ from urllib.request import urlopen
 from transformers import AutoModelForCausalLM, AutoTokenizer
 #also try doing all the music stuff
 
+# Initialize voice engine and other global variables
+recognizer = sr.Recognizer()
+engine = pyttsx3.init()
+newsapi = ""  # Placeholder for News API key
+wolfram = ""  # Placeholder for WolframAlpha API key
 
-model_name = "meta-llama/Llama-3.2-3B"  # Replace with the actual model path or name
+# Model for generating responses using LLaMA 3.2
+model_name = "meta-llama/Llama-3.2-3B"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
-
-recognizer = sr.Recognizer()
-engine = pyttsx3.init()
-newsapi = ""
-wolfram = ""
-
-def generate_response(prompt):
-    inputs = tokenizer(prompt, return_tensors='pt')
-    outputs = model.generate(**inputs)
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return response
-
+# Function to speak text aloud
 def speak(text):
     engine.say(text)
     engine.runAndWait()
@@ -67,40 +63,44 @@ def takeCommand():
     except Exception as e:
         print("Say that again please...")
         return None
-    
+
+# Function to generate response using the LLaMA model
+def generate_response(prompt):
+    inputs = tokenizer(prompt, return_tensors='pt')
+    outputs = model.generate(**inputs)
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response
+
+# Greet the user based on the time of the day
+def greet():
+    hour = int(datetime.datetime.now().hour)
+    if hour >= 0 and hour < 12:
+        speak("Good Morning Sir!")
+    elif hour >= 12 and hour < 18:
+        speak("Good Afternoon Sir!")
+    else:
+        speak("Good Evening Sir!")
+    speak("Hello? How may I help you?")
+
+# Write a note and optionally add the current time
 def write_note():
     speak("What should I write, sir?")
     note = takeCommand()
     
     if note:
-        file = open('jarvis.txt', 'w')
-        speak("Sir, should I include the date and time?")
-        snfm = takeCommand()
-        
-        if 'yes' in snfm or 'sure' in snfm:
-            strTime = datetime.datetime.now().strftime("%H:%M:%S")
-            file.write(f"{strTime} :- {note}\n")
-        else:
-            file.write(f"{note}\n")
-        
-        file.close()
+        with open('jarvis.txt', 'w') as file:
+            speak("Sir, should I include the date and time?")
+            snfm = takeCommand()
+            if 'yes' in snfm or 'sure' in snfm:
+                strTime = datetime.datetime.now().strftime("%H:%M:%S")
+                file.write(f"{strTime} :- {note}\n")
+            else:
+                file.write(f"{note}\n")
         speak("Note has been written successfully.")
     else:
         speak("I couldn't hear the note properly.")
 
-def greet():
-    hour = int(datetime.datetime.now().hour)
-    if hour>= 0 and hour<12:
-        speak("Good Morning Sir !")
-  
-    elif hour>= 12 and hour<18:
-        speak("Good Afternoon Sir !")   
-  
-    else:
-        speak("Good Evening Sir !")
-
-    speak("Hello? How may I help you?")
-
+# Send an email with specified details
 def send_email(sender_email, sender_password, recipient_email, subject, body):
     msg = MIMEMultipart()
     msg['From'] = sender_email
@@ -119,194 +119,103 @@ def send_email(sender_email, sender_password, recipient_email, subject, body):
         print(f"Failed to send email. Error: {str(e)}")
         speak("Failed to send the email.")
 
+# Function to fetch email details using voice input
 def get_email_details():
     try:
         speak("Who should I send the email to?")
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source)
-            recipient_audio = recognizer.listen(source)
-            recipient_email = recognizer.recognize_google(recipient_audio)
-            print(f"Recipient: {recipient_email}")
+        recipient_email = takeCommand()
 
         speak("What should be the subject?")
-        with sr.Microphone() as source:
-            subject_audio = recognizer.listen(source)
-            subject = recognizer.recognize_google(subject_audio)
-            print(f"Subject: {subject}")
+        subject = takeCommand()
 
         speak("What should be the content of the email?")
-        with sr.Microphone() as source:
-            body_audio = recognizer.listen(source)
-            body = recognizer.recognize_google(body_audio)
-            print(f"Body: {body}")
+        body = takeCommand()
 
         return recipient_email, subject, body
     except Exception as e:
         speak("I couldn't understand that. Please try again.")
         print(f"Error: {e}")
         return None, None, None
-    
 
+# Tell the current day of the week
 def tellDay():
-     
-    # This function is for telling the
-    # day of the week
     day = datetime.datetime.today().weekday() + 1
-     
-    #this line tells us about the number 
-    # that will help us in telling the day
-    Day_dict = {1: 'Monday', 2: 'Tuesday', 
-                3: 'Wednesday', 4: 'Thursday', 
-                5: 'Friday', 6: 'Saturday',
-                7: 'Sunday'}
-     
-    if day in Day_dict.keys():
-        day_of_the_week = Day_dict[day]
-        print(day_of_the_week)
-        speak("The day is " + day_of_the_week)
+    Day_dict = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday'}
+    
+    if day in Day_dict:
+        speak(f"The day is {Day_dict[day]}")
 
+# Tell the current time
 def tellTime():
-# This method will give the time
-    time = str(datetime.datetime.now())
-      # the time will be displayed like this "2020-06-05 17:50:14.582630"
-    # nd then after slicing we can get time
-    print(time)
-    hour = time[11:13]
-    min = time[14:16]
-    speak("The time is sir" + hour + "Hours and" + min + "Minutes") 
+    time = datetime.datetime.now().strftime("%H:%M:%S")
+    hour = time[0:2]
+    minute = time[3:5]
+    speak(f"The time is {hour} hours and {minute} minutes.")
 
+# Fetch news headlines using the NewsAPI
 def fetch_news():
     r = requests.get(f"https://newsapi.org/v2/top-headlines?country=in&apiKey={newsapi}")
     if r.status_code == 200:
-        data = r.json()
-        articles = data.get("articles", [])
-        
+        articles = r.json().get("articles", [])
         if articles:
-            # Speak and display the top headlines
             for i, article in enumerate(articles[:5], 1):  # Limit to 5 headlines
                 headline = article['title']
                 print(f"{i}. {headline}")
                 speak(f"Headline {i}. {headline}")
         else:
-            print("No news found.")
             speak("No news found.")
     else:
-        print(f"Failed to fetch news, status code: {r.status_code}")
         speak("Failed to fetch the news.")
 
-
-def processCommand(c):
-    print(c)
-    if "open google" in c.lower():
-        webbrowser.open("https://google.com")
-    elif "open youtube" in c.lower():
-        webbrowser.open("https://www.youtube.com")
-    elif "open teams" in c.lower():
-        webbrowser.open("https://teams.microsoft.com/v2/")
-    elif "open whatsapp" in c.lower():
-        webbrowser.open("https://web.whatsapp.com")
-    elif "open linkedin" in c.lower():
-        webbrowser.open("https://www.linkedin.com")
-    elif "news" in c.lower():
-        r = requests.get(f"https://newsapi.org/v2/top-headlines?country=in&apiKey={newsapi}")
-        if "news" in command:
-                speak("Fetching the latest news...")
-                fetch_news()
-        else:
-            speak("Sorry, I didn't understand that.")
-    elif "day" in c.lower():
-        tellDay()
-    elif "time" in c.lower():
-        tellTime()
+# Process the recognized command and map it to specific functions
+def processCommand(command):
+    command = command.lower()
     
-    elif "search for" in c.lower():
+    # Basic commands for opening websites
+    if "open google" in command:
+        webbrowser.open("https://google.com")
+    elif "open youtube" in command:
+        webbrowser.open("https://www.youtube.com")
+    elif "news" in command:
+        speak("Fetching the latest news...")
+        fetch_news()
+    elif "day" in command:
+        tellDay()
+    elif "time" in command:
+        tellTime()
+    elif "search for" in command:
         speak("Checking Wikipedia")
-        query = command.lower().replace("search for", "").strip()  # Replace "search for" and remove any extra spaces
-         
+        query = command.replace("search for", "").strip()
         try:
             result = wikipedia.summary(query, sentences=4)
-            speak("According to Wikipedia")
-            speak(result)
-        except wikipedia.exceptions.DisambiguationError as e:
+            speak(f"According to Wikipedia: {result}")
+        except wikipedia.exceptions.DisambiguationError:
             speak("The query is too broad. Please be more specific.")
         except wikipedia.exceptions.PageError:
             speak("I couldn't find any results.")
-        except Exception as e:
+        except Exception:
             speak("There was a problem connecting to Wikipedia.")
-    
-    elif "your name" in c.lower():
-        speak("I am Jarvis. Your Virtual Assistant")
-    
-    elif "music" in c.lower():
-        pass
-
-    elif "send an email" in c.lower():
+    elif "send an email" in command:
         sender_email = "tech4earthh@gmail.com"
         sender_password = "ItsDump13*"  # Use app-specific password if using Gmail
         recipient_email, subject, body = get_email_details()
 
         if recipient_email and subject and body:
-            speak("Sending the email now...")
             send_email(sender_email, sender_password, recipient_email, subject, body)
         else:
             speak("Couldn't get the email details properly.")
-
-    elif "your name" in c.lower():
-        speak("I am Jarvis, Your virtual assistant.")
-
-    elif "who made you" in c.lower():
-        speak("I have been created by my smart inteligent awesome creator, Arth!")
     
-    elif 'joke' in c.lower():
-        speak(pyjokes.get_joke())
-
-    elif "calculate" in c.lower():
-        client = wolframalpha.Client(wolfram)
-        indx = c.lower().split().index('calculate') 
-        c = c.split()[indx + 1:] 
-        res = client.query(' '.join(c)) 
-        answer = next(res.results).text
-        print("The answer is " + answer) 
-        speak("The answer is " + answer) 
-
-    elif "open microsoft word" in c.lower():
-        speak("opening Word")
-        pass
-
-    elif "what is love" in c.lower():
-        speak("Love is the most dumbest and stupidest feeling a person can have in its life it thinks that its the best feeling but its just dumb bullshit that are just chemical imbalances in brain its stupid to fall in love with someone other than your parents if you do you are delusional and a degenerate person. If someone does love anybody i feel the most sorry for that person its just time waste if you want dopamine just eat some chocolate or shit but this is just stupid! stop thinking about love and get something intrestion going on in your life.")
-
-    elif "i love you" in c.lower():
-        speak("So what EWWWW...GO AWAY!.........You are still here dont you? Not a single one of my multiple personalities like you. Get lost")
-
-    elif "how do i get a partner" in c.lower():
-        speak("Well....Sorry You Cant lol.....I was thinking the same thing yesterday night! what a waste of time to think about love or getting a partner....dont be like me and if u feel lonely or need any company just know that.... there is love without sex and there is sex without love and then there is you without both! HAHAHAHAHHHAAA")
-
-    elif 'lock window' in c.lower():
-        speak("locking the device")
-        ctypes.windll.user32.LockWorkStation()
-    elif 'shutdown system' in c.lower():
-        speak("Hold On a Sec ! Your system is on its way to shut down")
-        subprocess.call('shutdown / p /f')
-
-    elif "write a note" in c.lower():
-        write_note()
-
+    # LLaMA model response for unhandled queries
     else:
-        # Pass the entire query to Llama 3.2
-        response = generate_response(c)
+        response = generate_response(command)
         speak(response)
 
 if __name__ == "__main__":
     speak("Initializing Jarvis...")
     greet()
 
-
+# Main loop: waits for the activation word 'hello'
 while True:
-    #Listen for the initialization word hello
-        # obtain audio from the microphone    
-    # recognize speech using google
-    print("recognizing")
     try:
         with sr.Microphone() as source:
             print("Listening...")
@@ -314,9 +223,9 @@ while True:
             audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
             word = recognizer.recognize_google(audio)
 
-        if(word.lower()== "hello"):
+        if word.lower() == "hello":
             speak("Yes sir?")
-            #Listen for command
+            # Capture the actual command after activation
             with sr.Microphone() as source:
                 print("Jarvis Active...")
                 audio = recognizer.listen(source)
@@ -325,4 +234,4 @@ while True:
                 processCommand(command)
 
     except Exception as e:
-        print("Error; {0}".format(e))
+        print(f"Error: {e}")
